@@ -17,6 +17,19 @@ Generates map visualizations of NYC subway lines and the proposed Interborough E
   );
   out geom;
   ```
+- **LIRR lines**: Extracted from [Overpass Turbo](https://overpass-turbo.eu/) with query:
+  ```
+  [out:json][timeout:25];
+  (
+    way["railway"="rail"]["operator"~"Long Island Rail Road|LIRR",i]({{bbox}});
+    relation["railway"="rail"]["operator"~"Long Island Rail Road|LIRR",i]({{bbox}});
+    way["railway"="rail"]["name"~"Main Line|Port Washington",i]({{bbox}});
+    relation["railway"="rail"]["name"~"Main Line|Port Washington",i]({{bbox}});
+    way["railway"="rail"]["network"="Long Island Rail Road"]({{bbox}});
+    relation["railway"="rail"]["network"="Long Island Rail Road"]({{bbox}});
+  );
+  out geom;
+  ```
 
 ## Setup
 

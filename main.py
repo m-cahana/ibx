@@ -26,11 +26,11 @@ def geometry_to_svg_path(geom, scale_x=1, scale_y=1, offset_x=0, offset_y=0):
         return " ".join(coords_to_path(list(line.coords)) for line in geom.geoms)
     return ""
 
-def export_lines_to_svg(subway, ibx, colors_dict, filename='subway_lines_raw.svg'):
+def export_lines_to_svg(subway, ibx, lirr, colors_dict, filename='subway_lines_raw.svg'):
     """Export geometries directly to SVG without matplotlib canvas"""
     
     # Get bounds for viewBox
-    all_geoms = list(subway.geometry) + list(ibx.geometry)
+    all_geoms = list(subway.geometry) + list(ibx.geometry) + list(lirr.geometry)
     minx = min(geom.bounds[0] for geom in all_geoms)
     miny = min(geom.bounds[1] for geom in all_geoms)
     maxx = max(geom.bounds[2] for geom in all_geoms)
@@ -56,6 +56,13 @@ def export_lines_to_svg(subway, ibx, colors_dict, filename='subway_lines_raw.svg
             svg_lines.append(f'    <path id="route-{route}-{idx}" d="{path_data}"/>')
         
         svg_lines.append('  </g>')
+    
+    # Add LIRR lines
+    svg_lines.append(f'  <g id="lirr-lines" stroke="#FF9900" stroke-width="3" fill="none" stroke-opacity="0.85">')
+    for idx, geom in enumerate(lirr.geometry):
+        path_data = geometry_to_svg_path(geom, offset_x=-minx, offset_y=maxy)
+        svg_lines.append(f'    <path id="lirr-{idx}" d="{path_data}"/>')
+    svg_lines.append('  </g>')
     
     # Add IBX route
     svg_lines.append(f'  <g id="ibx-route" stroke="#0066FF" stroke-width="5" fill="none" stroke-opacity="0.95">')
@@ -100,32 +107,25 @@ SUBWAY_COLORS = {
     'S': '#808183',  # Dark Gray
 }
 
-# read the subway data and ibx geojson
+# read the subway data, ibx, and lirr geojson
 subway = gpd.read_file('data/nyu_2451_34758/routes_nyc_subway_may2016.shp') 
 ibx = gpd.read_file('data/ibx.geojson')
+lirr = gpd.read_file('data/lirr.geojson')
 
 # Reproject to Web Mercator (required for basemaps)
 subway = subway.to_crs(epsg=3857)
 ibx = ibx.to_crs(epsg=3857)
+lirr = lirr.to_crs(epsg=3857)
 
 # Create output folder if it doesn't exist
 os.makedirs('output', exist_ok=True)
 
 # ====== STEP 0: Export raw SVG paths (no canvas, fully editable in Figma) ======
-svg_width, svg_height, minx, miny, maxx, maxy = export_lines_to_svg(subway, ibx, SUBWAY_COLORS, 'output/subway_lines_raw.svg')
+svg_width, svg_height, minx, miny, maxx, maxy = export_lines_to_svg(subway, ibx, lirr, SUBWAY_COLORS, 'output/subway_lines_raw.svg')
 print("✓ Saved raw SVG paths: output/subway_lines_raw.svg")
 
 # ====== STEP 1: Create figure and plot lines only (for SVG with canvas) ======
 fig, ax = plt.subplots(figsize=(20, 24), dpi=300)
-
-# Plot IBX route in thick blue
-ibx.plot(
-    ax=ax,
-    linewidth=5,
-    color='#0066FF',
-    alpha=0.95,
-    zorder=3
-)
 
 # Plot each subway line with its own color
 for route in subway['route_shor'].unique():
@@ -140,6 +140,24 @@ for route in subway['route_shor'].unique():
         zorder=2,
         label=route
     )
+
+# Plot LIRR lines in orange
+lirr.plot(
+    ax=ax,
+    linewidth=3,
+    color='#FF9900',
+    alpha=0.85,
+    zorder=2.5
+)
+
+# Plot IBX route in thick blue
+ibx.plot(
+    ax=ax,
+    linewidth=5,
+    color='#0066FF',
+    alpha=0.95,
+    zorder=3
+)
 
 # Set axis limits to match raw SVG for alignment
 ax.set_xlim(minx, maxx)
@@ -173,14 +191,6 @@ print("✓ Saved basemap-only PNG: output/basemap_only.png")
 fig3, ax3 = plt.subplots(figsize=(20, 24), dpi=300)
 
 # Plot the lines
-ibx.plot(
-    ax=ax3,
-    linewidth=5,
-    color='#0066FF',
-    alpha=0.95,
-    zorder=3
-)
-
 for route in subway['route_shor'].unique():
     route_data = subway[subway['route_shor'] == route]
     color = SUBWAY_COLORS.get(route, '#333333')
@@ -193,6 +203,24 @@ for route in subway['route_shor'].unique():
         zorder=2,
         label=route
     )
+
+# Plot LIRR lines
+lirr.plot(
+    ax=ax3,
+    linewidth=3,
+    color='#FF9900',
+    alpha=0.85,
+    zorder=2.5
+)
+
+# Plot IBX route
+ibx.plot(
+    ax=ax3,
+    linewidth=5,
+    color='#0066FF',
+    alpha=0.95,
+    zorder=3
+)
 
 # Add Mapbox basemap
 ctx.add_basemap(ax3, source=mapbox_url, zoom=12)
